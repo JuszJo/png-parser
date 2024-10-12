@@ -22,6 +22,11 @@ struct IHDRChunk {
     uint8_t interlaceMethod;        // Interlace method:   1 byte
 };
 
+// converts an array of four 8 bit integers to a single 32 bit integer
+uint32_t readUint32(const uint8_t* data) {
+    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+}
+
 bool validateSignature(std::ifstream& file) {
     uint8_t signature[8];
 
@@ -32,6 +37,29 @@ bool validateSignature(std::ifstream& file) {
     for(int i = 0; i < 8; i++) if(signature[i] != PNG_SIGNATURE[i]) return false;
 
     return true;
+}
+
+PNGChunk readChunk(std::ifstream& file) {
+    PNGChunk chunk;
+    uint8_t lengthBytes[4];
+    
+    // Read length
+    file.read(reinterpret_cast<char*>(lengthBytes), 4);
+    chunk.length = readUint32(lengthBytes);
+    
+    // Read type
+    file.read(chunk.type, 4);
+    
+    // Read data
+    chunk.data.resize(chunk.length);
+    file.read(reinterpret_cast<char*>(chunk.data.data()), chunk.length);
+    
+    // Read CRC
+    uint8_t crcBytes[4];
+    file.read(reinterpret_cast<char*>(crcBytes), 4);
+    chunk.crc = readUint32(crcBytes);
+    
+    return chunk;
 }
 
 std::ifstream loadPNG(const char* filename) {
